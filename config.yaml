@@ -1,0 +1,29 @@
+# DNS Blocker Configuration
+
+server:
+  port: 53                    # Use 53 for system-wide (needs root)
+  bind_address: '0.0.0.0'       # Listen on all interfaces
+
+upstream_dns:
+  - '10.106.182.163'            # Primary: Local system resolver
+  - '8.8.8.8'                   # Secondary: Fallback
+
+blocklists:
+  - 'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts'
+  # - 'https://easylist.to/easylist/easylist.txt'   # Uncomment to add more
+
+cache:
+  max_size: 5000                # Max entries to store
+  default_ttl: 300              # Fallback TTL (seconds)
+
+logging:
+  level: 'INFO'                 # DEBUG, INFO, WARNING, ERROR
+  file: '/var/log/dns_blocker.log'  # Log file path
+
+dashboard:
+  enabled: true
+  port: 8080
+  host: '0.0.0.0'
+
+stats:
+  save_file: 'stats.json'       # Persistence file for stats

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  dns-blocker:
+    build: .
+    container_name: dns_blocker_server
+    restart: unless-stopped
+    command: python dns_blocker.py
+    environment:
+      - DNS_PORT=5353
+      - DNS_BIND=0.0.0.0
+      - STATS_FILE=/app/data/stats.json
+    ports:
+      - "53:5353/udp"
+    volumes:
+      - dns-data:/app/data
+
+  dashboard:
+    build: .
+    container_name: dns_blocker_dashboard
+    restart: unless-stopped
+    command: gunicorn -w 4 -b 0.0.0.0:8080 dashboard:app
+    environment:
+      - STATS_FILE=/app/data/stats.json
+    ports:
+      - "8080:8080"
+    volumes:
+      - dns-data:/app/data
+    depends_on:
+      - dns-blocker
+
+volumes:
+  dns-data:
