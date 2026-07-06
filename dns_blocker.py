@@ -90,7 +90,9 @@ class BlockingHandler(socketserver.BaseRequestHandler):
 
             # ----- 3. Forward to upstream -----
             print(f"🔄 Forwarding: {qname}")
-            proxy = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            family = socket.AF_INET6 if ":" in UPSTREAM_DNS[0] else socket.AF_INET
+            proxy = socket.socket(family, socket.SOCK_DGRAM)
+            proxy.settimeout(3.0)
             proxy.sendto(data, UPSTREAM_DNS)
             response, _ = proxy.recvfrom(4096)
 

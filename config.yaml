@@ -5,7 +5,7 @@ server:
   bind_address: '0.0.0.0'       # Listen on all interfaces
 
 upstream_dns:
-  - '10.106.182.163'            # Primary: Local system resolver
+  - '2409:40c1:5d:3380::9d'      # Primary: Working IPv6 resolver in sandbox
   - '8.8.8.8'                   # Secondary: Fallback
 
 blocklists:
