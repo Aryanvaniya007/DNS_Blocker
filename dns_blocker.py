@@ -16,9 +16,13 @@ from config import config
 PORT = config.get('server.port', 5353)
 BIND_ADDRESS = config.get('server.bind_address', '0.0.0.0')
 
-# Upstream DNS: use the first one from the list (fallback to 8.8.8.8)
+# Upstream DNS resolvers (supporting list of IPs)
 upstream_list = config.get('upstream_dns', ['8.8.8.8'])
-UPSTREAM_DNS = (upstream_list[0], 53)
+UPSTREAM_RESOLVERS = []
+for ip in upstream_list:
+    ip = ip.strip()
+    if ip:
+        UPSTREAM_RESOLVERS.append((ip, 53))
 
 CACHE_SIZE = config.get('cache.max_size', 5000)
 CACHE_TTL = config.get('cache.default_ttl', 300)
@@ -70,8 +74,6 @@ class BlockingHandler(socketserver.BaseRequestHandler):
                 client_sock.sendto(fixed_response, self.client_address)
                 stats.log_query(qname, blocked=False, cached=True)
                 return
-            else:
-                stats.log_query(qname, blocked=False, cached=False)
 
             # ----- 2. Check blocklist -----
             if blocklist.is_blocked(qname):
@@ -90,11 +92,27 @@ class BlockingHandler(socketserver.BaseRequestHandler):
 
             # ----- 3. Forward to upstream -----
             print(f"🔄 Forwarding: {qname}")
-            family = socket.AF_INET6 if ":" in UPSTREAM_DNS[0] else socket.AF_INET
-            proxy = socket.socket(family, socket.SOCK_DGRAM)
-            proxy.settimeout(3.0)
-            proxy.sendto(data, UPSTREAM_DNS)
-            response, _ = proxy.recvfrom(4096)
+            response = None
+            for resolver_ip, resolver_port in UPSTREAM_RESOLVERS:
+                proxy = None
+                try:
+                    family = socket.AF_INET6 if ":" in resolver_ip else socket.AF_INET
+                    proxy = socket.socket(family, socket.SOCK_DGRAM)
+                    proxy.settimeout(2.0)
+                    proxy.sendto(data, (resolver_ip, resolver_port))
+                    response, _ = proxy.recvfrom(4096)
+                    break  # Success, exit the resolver loop
+                except (socket.timeout, socket.error) as e:
+                    print(f"⚠️ Warning: Upstream resolver {resolver_ip}:{resolver_port} failed: {e}")
+                finally:
+                    if proxy:
+                        proxy.close()
+
+            if response is None:
+                raise Exception("All upstream DNS resolvers timed out or failed.")
+
+            # Record stats for successful forwarded resolution
+            stats.log_query(qname, blocked=False, cached=False)
 
             # ----- 4. Cache the response (extract TTL) -----
             ttl = None
